@@ -8,12 +8,16 @@ var eventproxy = require('eventproxy');
 var post_list = [];
 
 function download(uri, folderName, filename, callback){
-  request.head(uri, function(err, res, body){
-    // console.log('content-type:', res.headers['content-type']);
-    // console.log('content-length:', res.headers['content-length']);
-    // console.log( '圖片下載中: ' + uri );
-    request(uri).pipe(fs.createWriteStream('./' + folderName + '/' + filename)).on('close', callback);
-  });
+    try {
+        request.head(uri, function(err, res, body){
+            // console.log('content-type:', res.headers['content-type']);
+            // console.log('content-length:', res.headers['content-length']);
+            // console.log( '圖片下載中: ' + uri );
+            request(uri).pipe(fs.createWriteStream('./' + folderName + '/' + filename)).on('close', callback);
+        });
+    } catch (e) {
+        console.log( e );
+    }
 };
 
 function _formatSrc(src) {
@@ -47,21 +51,24 @@ function parseImgAndDownload(link, folderName, cb) {
         normalizeWhitespace: true
     };
 
+    try {
+        request(link, function (err, res, body) {
+            
+            var $ = cheerio.load(body, cheerioOptions);
+            var $mainContent = $('#main-container');
+            var $richContentImgs = $('.richcontent img', $mainContent);
 
-    request(link, function (err, res, body) {
-        
-        var $ = cheerio.load(body, cheerioOptions);
-        var $mainContent = $('#main-container');
-        var $richContentImgs = $('.richcontent img', $mainContent);
+            $richContentImgs.each(function (index, richContentImg) {
+                var imgSrc = _formatSrc($(richContentImg).attr('src'));
 
-        $richContentImgs.each(function (index, richContentImg) {
-            var imgSrc = _formatSrc($(richContentImg).attr('src'));
-
-            download(imgSrc, folderName, index + '.jpg', function(){
-                
+                download(imgSrc, folderName, index + '.jpg', function(){
+                    
+                });
             });
         });
-    });
+    } catch (e) {
+        console.log( e );
+    }
 }
 
 function parseBaseInfos(link) {
@@ -88,17 +95,21 @@ function parseBaseInfos(link) {
         var folderName = '[' + year + '-' + month + '-' + date + '] ' + title + ' - 作者： ' + author;
 
         folderName = formatFolderName(folderName);
+        
+        try {
+            createFolder(folderName, function () {
+                fs.writeFile('./' + folderName + '/index.html', body);
+                $richContentImgs.each(function (index, richContentImg) {
+                    var imgSrc = _formatSrc($(richContentImg).attr('src'));
 
-        createFolder(folderName, function () {
-            fs.writeFile('./' + folderName + '/index.html', body);
-            $richContentImgs.each(function (index, richContentImg) {
-                var imgSrc = _formatSrc($(richContentImg).attr('src'));
-
-                download(imgSrc, folderName, index + '.jpg', function(){
-                    
+                    download(imgSrc, folderName, index + '.jpg', function(){
+                        
+                    });
                 });
             });
-        });
+        } catch (e) {
+            console.log( e );
+        }
     });
 }
 
@@ -155,7 +166,7 @@ function run() {
                 post_list.splice(0, 10)
             }
         } catch (e) {
-
+            console.log( e );
         }
     });
 }
